@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+(function () {
+  const CONFIG = {
+    // Hier deinen SHA-256 Hash eintragen
+    passwordHash: "7513c1bc4c0beb36408cd80c308554841a365df638c8fcfee798dd378c39dde7",
+    title: "Geschützter Bereich",
+    text: "Bitte Passwort eingeben, um diese Seite zu öffnen.",
+    buttonText: "Öffnen",
+    errorText: "Passwort ist falsch.",
+    // Merkt sich erfolgreiche Anmeldung für X Stunden
+    rememberForHours: 12,
+    // Eindeutiger Name für diese Website
+    storageKey: "ionos_page_password_ok_v1"
+  };
+  document.documentElement.classList.add("pw-locked");
+  const style = document.createElement("style");
+  style.textContent = `
+    html.pw-locked body {
+      visibility: hidden !important;
+    }
+    #pw-overlay {
+      visibility: visible !important;
+      position: fixed;
+      inset: 0;
+      z-index: 2147483647;
+      background: radial-gradient(circle at top, #ffffff 0%, #f3f4f6 45%, #e5e7eb 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    #pw-box {
+      width: 100%;
+      max-width: 420px;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 24px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.18);
+      padding: 32px;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    #pw-box h2 {
+      margin: 0 0 10px;
+      font-size: 26px;
+      line-height: 1.2;
+      color: #111827;
+    }
+    #pw-box p {
+      margin: 0 0 24px;
+      color: #4b5563;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    #pw-input {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #d1d5db;
+      border-radius: 14px;
+      padding: 14px 16px;
+      font-size: 16px;
+      outline: none;
+      margin-bottom: 14px;
+    }
+    #pw-input:focus {
+      border-color: #111827;
+      box-shadow: 0 0 0 4px rgba(17,24,39,0.08);
+    }
+    #pw-button {
+      width: 100%;
+      border: 0;
+      border-radius: 14px;
+      padding: 14px 18px;
+      font-size: 16px;
+      font-weight: 700;
+      color: white;
+      background: #111827;
+      cursor: pointer;
+    }
+    #pw-button:hover {
+      background: #000;
+    }
+    #pw-error {
+      min-height: 20px;
+      margin-top: 14px;
+      color: #dc2626;
+      font-size: 14px;
+      font-weight: 600;
+    }
+  `;
+  document.head.appendChild(style);
+  function getStoredAuth() {
+    try {
+      const value = localStorage.getItem(CONFIG.storageKey);
+      if (!value) return false;
+      const data = JSON.parse(value);
+      if (!data.expiresAt) return false;
+      if (Date.now() > data.expiresAt) {
+        localStorage.removeItem(CONFIG.storageKey);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+  function storeAuth() {
+    try {
+      localStorage.setItem(CONFIG.storageKey, JSON.stringify({
+        expiresAt: Date.now() + CONFIG.rememberForHours * 60 * 60 * 1000
+      }));
+    } catch (e) {}
+  }
+  async function sha256(text) {
+    const data = new TextEncoder().encode(text);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(hashBuffer))
+      .map(byte => byte.toString(16).padStart(2, "0"))
+      .join("");
+  }
+  function unlock() {
+    document.documentElement.classList.remove("pw-locked");
+    const overlay = document.getElementById("pw-overlay");
+    if (overlay) overlay.remove();
+  }
+  function createOverlay() {
+    const overlay = document.createElement("div");
+    overlay.id = "pw-overlay";
+    overlay.innerHTML = `
+      <div id="pw-box">
+        <h2>${CONFIG.title}</h2>
+        <p>${CONFIG.text}</p>
+        <input id="pw-input" type="password" placeholder="Passwort" autocomplete="current-password">
+        <button id="pw-button" type="button">${CONFIG.buttonText}</button>
+        <div id="pw-error"></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const input = document.getElementById("pw-input");
+    const button = document.getElementById("pw-button");
+    const error = document.getElementById("pw-error");
+    async function checkPassword() {
+      error.textContent = "";
+      const enteredPassword = input.value || "";
+      const enteredHash = await sha256(enteredPassword);
+      if (enteredHash === CONFIG.passwordHash) {
+        storeAuth();
+        unlock();
+      } else {
+        error.textContent = CONFIG.errorText;
+        input.value = "";
+        input.focus();
+      }
+    }
+    button.addEventListener("click", checkPassword);
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        checkPassword();
+      }
+    });
+    setTimeout(() => input.focus(), 50);
+  }
+  if (getStoredAuth()) {
+    unlock();
+  } else {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", createOverlay);
+    } else {
+      createOverlay();
+    }
+  }
+})();
+</script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    
+</body>
+</html>
